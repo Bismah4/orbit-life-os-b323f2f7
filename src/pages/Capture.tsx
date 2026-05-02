@@ -201,12 +201,17 @@ const ResultCard = ({ task, onAdd, onEdit, onDiscard }: {
         );
       case "email":
         return (
-          <div className="p-4">
-            <div className="text-xs text-muted-foreground">From</div>
-            <div className="font-medium">{m.sender}</div>
-            <div className="text-xs text-muted-foreground mt-2">Subject</div>
-            <div className="text-sm">{m.subject}</div>
-            <div className="mt-2 rounded-xl bg-secondary/60 p-3 text-sm">{m.summary}</div>
+          <div className="p-4 space-y-2">
+            <div>
+              <div className="text-xs text-muted-foreground">From</div>
+              <div className="text-sm font-medium truncate">{m.sender}</div>
+            </div>
+            <div>
+              <div className="text-xs text-muted-foreground">Subject</div>
+              <div className="text-sm">{m.subject}</div>
+            </div>
+            <div className="rounded-xl bg-secondary/60 p-3 text-xs text-muted-foreground line-clamp-3">{m.summary}</div>
+            <div className="text-[11px] text-muted-foreground">Intent: <span className="text-foreground">{m.intent}</span></div>
           </div>
         );
     }
