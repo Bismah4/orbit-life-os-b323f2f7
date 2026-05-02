@@ -394,18 +394,95 @@ const Capture = () => {
           </div>
         );
       }
-      case "voice":
+      case "voice": {
+        const startRec = () => {
+          setRecState("recording");
+          setRecSeconds(0);
+          recTimer.current = window.setInterval(() => setRecSeconds((s) => s + 1), 1000);
+          waveTimer.current = window.setInterval(() => {
+            setWaveform(Array.from({ length: 28 }, () => 6 + Math.random() * 32));
+          }, 120);
+        };
+        const stopRec = () => {
+          stopRecorder();
+          setRecState("transcribing");
+          setTimeout(() => {
+            const transcripts = [
+              "Don't forget Dr. Mehta on Friday at 4 PM.",
+              "Remind me to pay the electricity bill tomorrow.",
+              "Reply to Sarah about lunch on Thursday.",
+              "Renew car insurance before next week.",
+            ];
+            setVoiceText(transcripts[Math.floor(Math.random() * transcripts.length)]);
+            setRecState("stopped");
+          }, 900);
+        };
+        const mm = String(Math.floor(recSeconds / 60)).padStart(2, "0");
+        const ss = String(recSeconds % 60).padStart(2, "0");
         return (
-          <div className="space-y-3">
-            <Textarea value={voiceText} onChange={(e) => setVoiceText(e.target.value)} placeholder="Type or paste your voice transcript…"
-              className="bg-secondary border-border min-h-[100px]" />
-            <div className="text-xs text-muted-foreground">Mock recorder: just type what you'd say.</div>
-            <Button onClick={() => startProcessing("voice", { transcript: voiceText })}
-              className="w-full" style={{ background: "var(--gradient-brand)", color: "hsl(var(--primary-foreground))" }}>
-              Process voice
-            </Button>
+          <div className="space-y-4">
+            <div className="rounded-2xl bg-secondary/40 border border-border p-5 flex flex-col items-center gap-3">
+              <button
+                onClick={recState === "recording" ? stopRec : recState === "idle" ? startRec : undefined}
+                disabled={recState === "transcribing"}
+                className="w-20 h-20 rounded-full flex items-center justify-center tap relative"
+                style={{
+                  background: recState === "recording"
+                    ? "hsl(var(--destructive))"
+                    : "var(--gradient-brand)",
+                  boxShadow: "var(--shadow-glow)",
+                }}
+              >
+                {recState === "recording" && (
+                  <span className="absolute inset-0 rounded-full animate-pulse-glow"
+                    style={{ background: "hsl(var(--destructive) / 0.4)" }} />
+                )}
+                {recState === "transcribing"
+                  ? <Loader2 className="w-7 h-7 animate-spin text-white relative" />
+                  : recState === "recording"
+                    ? <Square className="w-6 h-6 text-white fill-white relative" />
+                    : <Mic className="w-7 h-7 text-white relative" />}
+              </button>
+              <div className="text-2xl font-mono tabular-nums tracking-wider">{mm}:{ss}</div>
+              <div className="flex items-end gap-[3px] h-10 w-full justify-center">
+                {waveform.map((h, i) => (
+                  <span key={i} className="w-[3px] rounded-full transition-all duration-150"
+                    style={{
+                      height: recState === "recording" ? `${h}px` : "6px",
+                      background: recState === "recording" ? "hsl(var(--destructive))" : "hsl(var(--primary) / 0.5)",
+                    }} />
+                ))}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                {recState === "idle" && "Tap mic to start recording"}
+                {recState === "recording" && "Recording… tap to stop"}
+                {recState === "transcribing" && "Transcribing your voice…"}
+                {recState === "stopped" && "Review transcript below"}
+              </div>
+            </div>
+
+            {recState === "stopped" && (
+              <>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Transcript</Label>
+                  <Textarea value={voiceText} onChange={(e) => setVoiceText(e.target.value)}
+                    className="mt-1 bg-secondary border-border min-h-[80px]" />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button variant="outline" onClick={() => { setRecState("idle"); setVoiceText(""); setRecSeconds(0); }}
+                    className="rounded-xl bg-secondary border-border">
+                    <Play className="w-4 h-4 mr-1.5" /> Re-record
+                  </Button>
+                  <Button disabled={!voiceText.trim()} onClick={() => startProcessing("voice", { transcript: voiceText })}
+                    className="rounded-xl" style={{ background: "var(--gradient-brand)", color: "hsl(var(--primary-foreground))" }}>
+                    <Sparkles className="w-4 h-4 mr-1.5" /> Understand
+                  </Button>
+                </div>
+              </>
+            )}
           </div>
         );
+      }
       case "text":
         return (
           <div className="space-y-3">
