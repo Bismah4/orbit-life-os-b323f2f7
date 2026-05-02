@@ -304,7 +304,8 @@ const EditModal = ({ open, draft, onOpenChange, onSave }: {
 // =================== Capture Page ===================
 
 const Capture = () => {
-  const { addTask } = useOrbit();
+  const { addTask, canUse, bumpUsage, isPremium, trialEndsAt, freeUsage } = useOrbit();
+  const navigate = useNavigate();
   const [activeMethod, setActiveMethod] = useState<CaptureSource | null>(null);
   const [step, setStep] = useState<"input" | "processing" | "result">("input");
   const [progress, setProgress] = useState(0);
@@ -316,20 +317,42 @@ const Capture = () => {
   const [textInput, setTextInput] = useState("");
   const [voiceText, setVoiceText] = useState("");
   const [manual, setManual] = useState({ title: "", category: "admin" as Category, priority: "medium" as Priority, dueAt: "" });
-  const [email, setEmail] = useState({ sender: "", subject: "" });
+  const [email, setEmail] = useState({ sender: "", subject: "", body: "" });
   const [filePreview, setFilePreview] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string>("");
+
+  // voice recorder state
+  const [recState, setRecState] = useState<"idle" | "recording" | "stopped" | "transcribing">("idle");
+  const [recSeconds, setRecSeconds] = useState(0);
+  const [waveform, setWaveform] = useState<number[]>(Array(28).fill(8));
+  const recTimer = useRef<number | null>(null);
+  const waveTimer = useRef<number | null>(null);
+
+  const stopRecorder = () => {
+    if (recTimer.current) { clearInterval(recTimer.current); recTimer.current = null; }
+    if (waveTimer.current) { clearInterval(waveTimer.current); waveTimer.current = null; }
+  };
+  useEffect(() => () => stopRecorder(), []);
 
   const reset = () => {
     setActiveMethod(null);
     setStep("input");
     setProgress(0);
     setDraft(null);
-    setTextInput(""); setVoiceText(""); setManual({ title: "", category: "admin", priority: "medium", dueAt: "" });
-    setEmail({ sender: "", subject: "" }); setFilePreview(null); setFileName("");
+    setTextInput(""); setVoiceText("");
+    setManual({ title: "", category: "admin", priority: "medium", dueAt: "" });
+    setEmail({ sender: "", subject: "", body: "" });
+    setFilePreview(null); setFileName("");
+    stopRecorder();
+    setRecState("idle"); setRecSeconds(0); setWaveform(Array(28).fill(8));
   };
 
   const startProcessing = async (source: CaptureSource, raw: any) => {
+    if (!canUse("capture")) {
+      navigate("/premium", { state: { reason: "You've hit today's free capture limit. Go unlimited with Orbit Premium." } });
+      return;
+    }
+    bumpUsage("capture");
     setStep("processing");
     setProgress(0);
     for (let i = 0; i < PROCESSING_STEPS.length; i++) {
