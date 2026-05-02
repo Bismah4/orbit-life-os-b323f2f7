@@ -188,7 +188,7 @@ export const useOrbit = create<AppState>()(
         avatarColor: "hsl(212 100% 62%)",
         avatarInitial: "A",
         streak: 12,
-        premium: true,
+        premium: false,
       },
       updateProfile: (p) => set({ profile: { ...get().profile, ...p, avatarInitial: (p.name?.trim()?.[0] ?? get().profile.avatarInitial).toUpperCase() } }),
 
