@@ -64,6 +64,18 @@ interface AppState {
   connectedApple: boolean;
   setSetting: <K extends keyof AppState>(k: K, v: AppState[K]) => void;
 
+  // premium / trial
+  isPremium: boolean;
+  trialEndsAt?: number; // ms
+  freeUsage: { date: string; captures: number; reminders: number };
+  setPremium: (v: boolean, trialDays?: number) => void;
+  canUse: (kind: "capture" | "reminder") => boolean;
+  bumpUsage: (kind: "capture" | "reminder") => void;
+
+  // admin items (bills/documents/renewals)
+  adminItems: AdminItem[];
+  updateAdminItem: (id: string, p: Partial<AdminItem>) => void;
+
   // tasks & reminders
   tasks: OrbitTask[];
   reminders: Reminder[];
