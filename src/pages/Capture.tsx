@@ -559,10 +559,28 @@ const Capture = () => {
     }
   };
 
+  const onTrial = trialEndsAt && trialEndsAt > Date.now();
+  const today = new Date().toISOString().slice(0, 10);
+  const usedToday = freeUsage.date === today ? freeUsage.captures : 0;
+  const freeLimit = 3;
+
   return (
     <div className="px-5 pt-6 pb-6 min-h-screen">
       <h1 className="text-xl font-semibold tracking-tight">Capture</h1>
       <p className="text-xs text-muted-foreground mt-1">Drop anything. Orbit will understand it.</p>
+
+      {/* free usage / premium banner */}
+      {!isPremium && !onTrial && (
+        <button onClick={() => navigate("/premium")}
+          className="mt-4 w-full premium-card p-3 flex items-center gap-3 text-left tap">
+          <Sparkles className="w-4 h-4 text-primary" />
+          <div className="flex-1 min-w-0">
+            <div className="text-xs font-medium">{Math.max(0, freeLimit - usedToday)} free captures left today</div>
+            <div className="text-[11px] text-muted-foreground">Go unlimited with Orbit Premium</div>
+          </div>
+          <span className="text-[11px] text-primary font-semibold">Upgrade →</span>
+        </button>
+      )}
 
       {/* method grid */}
       <div className="mt-5 grid grid-cols-2 gap-3">
@@ -588,13 +606,17 @@ const Capture = () => {
           <div className="text-xs text-muted-foreground mb-2">Just added</div>
           <div className="space-y-2">
             {results.slice(0, 3).map((r) => (
-              <div key={r.id} className="premium-card p-3 flex items-center gap-3">
-                <div className="w-1 h-8 rounded-full" style={{ background: `hsl(var(--priority-${r.priority}))` }} />
+              <button key={r.id} onClick={() => navigate(`/task/${r.id}`)}
+                className="w-full premium-card p-3 flex items-center gap-3 text-left tap">
+                <div className="w-1 h-10 rounded-full" style={{ background: `hsl(var(--priority-${r.priority}))` }} />
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm truncate">{r.title}</div>
-                  <div className="text-[11px] text-muted-foreground">Added · {CATEGORY_META[r.category].label}</div>
+                  <div className="text-sm font-medium truncate">{r.title}</div>
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <CategoryPill category={r.category} />
+                    <PriorityPill priority={r.priority} />
+                  </div>
                 </div>
-              </div>
+              </button>
             ))}
           </div>
         </div>
