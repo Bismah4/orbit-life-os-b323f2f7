@@ -34,6 +34,29 @@ export interface Reminder {
   dismissed?: boolean;
 }
 
+export interface Reminder {
+  id: string;
+  taskId: string;
+  title: string;
+  category: Category;
+  priority: Priority;
+  remindAt: number;
+  createdAt: number;
+  dismissed?: boolean;
+}
+
+export type AdminItemKind = "bills" | "documents" | "renewals";
+export interface AdminItem {
+  id: string;
+  kind: AdminItemKind;
+  title: string;
+  amount?: string;
+  dueAt?: number;
+  status: "active" | "done" | "archived";
+  notes?: string;
+  meta?: Record<string, any>;
+}
+
 export interface Profile {
   name: string;
   email: string;
@@ -176,6 +199,42 @@ export const useOrbit = create<AppState>()(
       connectedGoogle: true,
       connectedApple: false,
       setSetting: (k, v) => set({ [k]: v } as any),
+
+      isPremium: false,
+      trialEndsAt: undefined,
+      freeUsage: { date: new Date().toISOString().slice(0, 10), captures: 0, reminders: 0 },
+      setPremium: (v, trialDays) => set({
+        isPremium: v,
+        trialEndsAt: trialDays ? Date.now() + trialDays * 86400000 : undefined,
+        profile: { ...get().profile, premium: v },
+      }),
+      canUse: (kind) => {
+        const s = get();
+        if (s.isPremium || (s.trialEndsAt && s.trialEndsAt > Date.now())) return true;
+        const today = new Date().toISOString().slice(0, 10);
+        const u = s.freeUsage.date === today ? s.freeUsage : { date: today, captures: 0, reminders: 0 };
+        const limits = { capture: 3, reminder: 3 };
+        return u[kind === "capture" ? "captures" : "reminders"] < limits[kind];
+      },
+      bumpUsage: (kind) => {
+        const today = new Date().toISOString().slice(0, 10);
+        const u = get().freeUsage.date === today ? { ...get().freeUsage } : { date: today, captures: 0, reminders: 0 };
+        if (kind === "capture") u.captures += 1; else u.reminders += 1;
+        set({ freeUsage: u });
+      },
+
+      adminItems: [
+        { id: "b1", kind: "bills", title: "Electricity — BESCOM", amount: "₹2,340", dueAt: Date.now() + 2 * 86400000, status: "active", notes: "Pay via UPI to avoid ₹120 late fee." },
+        { id: "b2", kind: "bills", title: "Internet — ACT", amount: "₹1,099", dueAt: Date.now() + 5 * 86400000, status: "active" },
+        { id: "b3", kind: "bills", title: "Water — BWSSB", amount: "₹420", dueAt: Date.now() - 1 * 86400000, status: "active", notes: "Overdue — pay immediately." },
+        { id: "r1", kind: "renewals", title: "Car insurance — ICICI", amount: "₹12,400", dueAt: Date.now() + 7 * 86400000, status: "active" },
+        { id: "r2", kind: "renewals", title: "Domain — orbit.app", amount: "$12", dueAt: Date.now() + 21 * 86400000, status: "active" },
+        ...["Lease agreement", "Aadhaar copy", "PAN card", "Insurance policy", "Bank KYC", "Salary slip", "ITR 2024", "Passport scan", "Driving licence", "Voter ID", "School certificate", "Medical report"].map((t, i) => ({
+          id: "d" + i, kind: "documents" as const, title: t, status: "active" as const, meta: { format: "PDF" },
+        })),
+      ],
+      updateAdminItem: (id, p) => set({ adminItems: get().adminItems.map((x) => x.id === id ? { ...x, ...p } : x) }),
+
 
       tasks: seedTasks(),
       reminders: [],
