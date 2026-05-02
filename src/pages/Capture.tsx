@@ -533,13 +533,26 @@ const Capture = () => {
       case "email":
         return (
           <div className="space-y-3">
-            <Input placeholder="From (sender)" value={email.sender} onChange={(e) => setEmail({ ...email, sender: e.target.value })}
-              className="bg-secondary border-border" />
-            <Input placeholder="Subject" value={email.subject} onChange={(e) => setEmail({ ...email, subject: e.target.value })}
-              className="bg-secondary border-border" />
-            <Button disabled={!email.subject.trim()} onClick={() => startProcessing("email", email)}
+            <div>
+              <Label className="text-xs text-muted-foreground">From</Label>
+              <Input placeholder="sender@email.com" value={email.sender} onChange={(e) => setEmail({ ...email, sender: e.target.value })}
+                className="mt-1 bg-secondary border-border" />
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground">Subject</Label>
+              <Input placeholder="Email subject" value={email.subject} onChange={(e) => setEmail({ ...email, subject: e.target.value })}
+                className="mt-1 bg-secondary border-border" />
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground">Email body</Label>
+              <Textarea placeholder="Paste the email content so Orbit can understand it…"
+                value={email.body} onChange={(e) => setEmail({ ...email, body: e.target.value })}
+                className="mt-1 bg-secondary border-border min-h-[140px]" />
+              <div className="text-[11px] text-muted-foreground mt-1">Orbit will detect intent, summary, priority & next action.</div>
+            </div>
+            <Button disabled={!email.subject.trim() || !email.body.trim()} onClick={() => startProcessing("email", email)}
               className="w-full" style={{ background: "var(--gradient-brand)", color: "hsl(var(--primary-foreground))" }}>
-              Process email
+              <Sparkles className="w-4 h-4 mr-1.5" /> Understand email
             </Button>
           </div>
         );
