@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useOrbit, OrbitTask, CaptureSource } from "@/store/orbit";
 import type { Category, Priority } from "@/lib/design";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -11,7 +12,7 @@ import { CATEGORY_META } from "@/lib/design";
 import { toast } from "sonner";
 import {
   Image as ImageIcon, ScanLine, Mic, Type, Plus, Mail,
-  Loader2, Sparkles, Edit3, Trash2, Check,
+  Loader2, Sparkles, Edit3, Trash2, Check, Square, Play,
 } from "lucide-react";
 
 type Method = {
