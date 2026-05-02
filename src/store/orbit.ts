@@ -291,6 +291,10 @@ export const useOrbit = create<AppState>()(
         connectedApple: s.connectedApple,
         tasks: s.tasks,
         reminders: s.reminders,
+        isPremium: s.isPremium,
+        trialEndsAt: s.trialEndsAt,
+        freeUsage: s.freeUsage,
+        adminItems: s.adminItems,
       }),
     }
   )
