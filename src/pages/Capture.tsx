@@ -106,15 +106,30 @@ const mockProcess = (source: CaptureSource, raw: any): Omit<OrbitTask, "id" | "c
         whyItMatters: "You added this yourself — Orbit will keep it on your radar.",
         meta: {},
       };
-    case "email":
+    case "email": {
+      const subject = raw?.subject || "Renewal notice";
+      const body = (raw?.body || "").toString();
+      const lower = (subject + " " + body).toLowerCase();
+      let category: Category = "admin";
+      let priority: Priority = "medium";
+      let intent = "Needs a reply";
+      let action = "Send a reply";
+      if (/invoice|payment|amount|due|bill|₹|\$/.test(lower)) { category = "money"; priority = "high"; intent = "Payment required"; action = "Pay before due date"; }
+      else if (/meeting|call|schedul|invite|calendar/.test(lower)) { category = "work"; intent = "Schedule it"; action = "Add to calendar"; }
+      else if (/renew|expire|policy|insurance|subscription/.test(lower)) { category = "admin"; priority = "high"; intent = "Renewal needed"; action = "Renew before expiry"; }
+      else if (/health|appointment|doctor|prescription/.test(lower)) { category = "health"; intent = "Health follow-up"; action = "Book / confirm"; }
+      const summary = body
+        ? body.replace(/\s+/g, " ").trim().slice(0, 180) + (body.length > 180 ? "…" : "")
+        : "Email looks like it expects a response.";
       return {
         ...base,
-        title: "Reply to: " + (raw?.subject || "Renewal notice"),
-        category: "admin", priority: "medium",
-        suggestedAction: "Send a reply",
-        whyItMatters: "Email looks like it expects a response.",
-        meta: { sender: raw?.sender || "ICICI Lombard", subject: raw?.subject || "Your policy expires in 7 days", summary: "Renewal needed within a week to avoid lapse." },
+        title: subject,
+        category, priority,
+        suggestedAction: action,
+        whyItMatters: "Detected intent: " + intent,
+        meta: { sender: raw?.sender || "unknown@sender.com", subject, body, summary, intent },
       };
+    }
   }
 };
 
