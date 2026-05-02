@@ -6,7 +6,7 @@ const tabs = [
   { to: "/feed", label: "Feed", icon: Inbox },
   { to: "/capture", label: "Capture", icon: Layers, primary: true },
   { to: "/memory", label: "Memory", icon: BookmarkCheck },
-  { to: "/profile", label: "Profile", icon: User },
+  { to: "/profile", label: "Settings", icon: User },
 ];
 
 export const BottomNav = () => {
