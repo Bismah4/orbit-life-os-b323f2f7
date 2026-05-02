@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useOrbit, OrbitTask, CaptureSource } from "@/store/orbit";
 import type { Category, Priority } from "@/lib/design";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -11,7 +12,7 @@ import { CATEGORY_META } from "@/lib/design";
 import { toast } from "sonner";
 import {
   Image as ImageIcon, ScanLine, Mic, Type, Plus, Mail,
-  Loader2, Sparkles, Edit3, Trash2, Check,
+  Loader2, Sparkles, Edit3, Trash2, Check, Square, Play,
 } from "lucide-react";
 
 type Method = {
@@ -105,15 +106,30 @@ const mockProcess = (source: CaptureSource, raw: any): Omit<OrbitTask, "id" | "c
         whyItMatters: "You added this yourself — Orbit will keep it on your radar.",
         meta: {},
       };
-    case "email":
+    case "email": {
+      const subject = raw?.subject || "Renewal notice";
+      const body = (raw?.body || "").toString();
+      const lower = (subject + " " + body).toLowerCase();
+      let category: Category = "admin";
+      let priority: Priority = "medium";
+      let intent = "Needs a reply";
+      let action = "Send a reply";
+      if (/invoice|payment|amount|due|bill|₹|\$/.test(lower)) { category = "money"; priority = "high"; intent = "Payment required"; action = "Pay before due date"; }
+      else if (/meeting|call|schedul|invite|calendar/.test(lower)) { category = "work"; intent = "Schedule it"; action = "Add to calendar"; }
+      else if (/renew|expire|policy|insurance|subscription/.test(lower)) { category = "admin"; priority = "high"; intent = "Renewal needed"; action = "Renew before expiry"; }
+      else if (/health|appointment|doctor|prescription/.test(lower)) { category = "health"; intent = "Health follow-up"; action = "Book / confirm"; }
+      const summary = body
+        ? body.replace(/\s+/g, " ").trim().slice(0, 180) + (body.length > 180 ? "…" : "")
+        : "Email looks like it expects a response.";
       return {
         ...base,
-        title: "Reply to: " + (raw?.subject || "Renewal notice"),
-        category: "admin", priority: "medium",
-        suggestedAction: "Send a reply",
-        whyItMatters: "Email looks like it expects a response.",
-        meta: { sender: raw?.sender || "ICICI Lombard", subject: raw?.subject || "Your policy expires in 7 days", summary: "Renewal needed within a week to avoid lapse." },
+        title: subject,
+        category, priority,
+        suggestedAction: action,
+        whyItMatters: "Detected intent: " + intent,
+        meta: { sender: raw?.sender || "unknown@sender.com", subject, body, summary, intent },
       };
+    }
   }
 };
 
@@ -185,12 +201,17 @@ const ResultCard = ({ task, onAdd, onEdit, onDiscard }: {
         );
       case "email":
         return (
-          <div className="p-4">
-            <div className="text-xs text-muted-foreground">From</div>
-            <div className="font-medium">{m.sender}</div>
-            <div className="text-xs text-muted-foreground mt-2">Subject</div>
-            <div className="text-sm">{m.subject}</div>
-            <div className="mt-2 rounded-xl bg-secondary/60 p-3 text-sm">{m.summary}</div>
+          <div className="p-4 space-y-2">
+            <div>
+              <div className="text-xs text-muted-foreground">From</div>
+              <div className="text-sm font-medium truncate">{m.sender}</div>
+            </div>
+            <div>
+              <div className="text-xs text-muted-foreground">Subject</div>
+              <div className="text-sm">{m.subject}</div>
+            </div>
+            <div className="rounded-xl bg-secondary/60 p-3 text-xs text-muted-foreground line-clamp-3">{m.summary}</div>
+            <div className="text-[11px] text-muted-foreground">Intent: <span className="text-foreground">{m.intent}</span></div>
           </div>
         );
     }
@@ -283,7 +304,8 @@ const EditModal = ({ open, draft, onOpenChange, onSave }: {
 // =================== Capture Page ===================
 
 const Capture = () => {
-  const { addTask } = useOrbit();
+  const { addTask, canUse, bumpUsage, isPremium, trialEndsAt, freeUsage } = useOrbit();
+  const navigate = useNavigate();
   const [activeMethod, setActiveMethod] = useState<CaptureSource | null>(null);
   const [step, setStep] = useState<"input" | "processing" | "result">("input");
   const [progress, setProgress] = useState(0);
@@ -295,20 +317,42 @@ const Capture = () => {
   const [textInput, setTextInput] = useState("");
   const [voiceText, setVoiceText] = useState("");
   const [manual, setManual] = useState({ title: "", category: "admin" as Category, priority: "medium" as Priority, dueAt: "" });
-  const [email, setEmail] = useState({ sender: "", subject: "" });
+  const [email, setEmail] = useState({ sender: "", subject: "", body: "" });
   const [filePreview, setFilePreview] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string>("");
+
+  // voice recorder state
+  const [recState, setRecState] = useState<"idle" | "recording" | "stopped" | "transcribing">("idle");
+  const [recSeconds, setRecSeconds] = useState(0);
+  const [waveform, setWaveform] = useState<number[]>(Array(28).fill(8));
+  const recTimer = useRef<number | null>(null);
+  const waveTimer = useRef<number | null>(null);
+
+  const stopRecorder = () => {
+    if (recTimer.current) { clearInterval(recTimer.current); recTimer.current = null; }
+    if (waveTimer.current) { clearInterval(waveTimer.current); waveTimer.current = null; }
+  };
+  useEffect(() => () => stopRecorder(), []);
 
   const reset = () => {
     setActiveMethod(null);
     setStep("input");
     setProgress(0);
     setDraft(null);
-    setTextInput(""); setVoiceText(""); setManual({ title: "", category: "admin", priority: "medium", dueAt: "" });
-    setEmail({ sender: "", subject: "" }); setFilePreview(null); setFileName("");
+    setTextInput(""); setVoiceText("");
+    setManual({ title: "", category: "admin", priority: "medium", dueAt: "" });
+    setEmail({ sender: "", subject: "", body: "" });
+    setFilePreview(null); setFileName("");
+    stopRecorder();
+    setRecState("idle"); setRecSeconds(0); setWaveform(Array(28).fill(8));
   };
 
   const startProcessing = async (source: CaptureSource, raw: any) => {
+    if (!canUse("capture")) {
+      navigate("/premium", { state: { reason: "You've hit today's free capture limit. Go unlimited with Orbit Premium." } });
+      return;
+    }
+    bumpUsage("capture");
     setStep("processing");
     setProgress(0);
     for (let i = 0; i < PROCESSING_STEPS.length; i++) {
@@ -350,18 +394,95 @@ const Capture = () => {
           </div>
         );
       }
-      case "voice":
+      case "voice": {
+        const startRec = () => {
+          setRecState("recording");
+          setRecSeconds(0);
+          recTimer.current = window.setInterval(() => setRecSeconds((s) => s + 1), 1000);
+          waveTimer.current = window.setInterval(() => {
+            setWaveform(Array.from({ length: 28 }, () => 6 + Math.random() * 32));
+          }, 120);
+        };
+        const stopRec = () => {
+          stopRecorder();
+          setRecState("transcribing");
+          setTimeout(() => {
+            const transcripts = [
+              "Don't forget Dr. Mehta on Friday at 4 PM.",
+              "Remind me to pay the electricity bill tomorrow.",
+              "Reply to Sarah about lunch on Thursday.",
+              "Renew car insurance before next week.",
+            ];
+            setVoiceText(transcripts[Math.floor(Math.random() * transcripts.length)]);
+            setRecState("stopped");
+          }, 900);
+        };
+        const mm = String(Math.floor(recSeconds / 60)).padStart(2, "0");
+        const ss = String(recSeconds % 60).padStart(2, "0");
         return (
-          <div className="space-y-3">
-            <Textarea value={voiceText} onChange={(e) => setVoiceText(e.target.value)} placeholder="Type or paste your voice transcript…"
-              className="bg-secondary border-border min-h-[100px]" />
-            <div className="text-xs text-muted-foreground">Mock recorder: just type what you'd say.</div>
-            <Button onClick={() => startProcessing("voice", { transcript: voiceText })}
-              className="w-full" style={{ background: "var(--gradient-brand)", color: "hsl(var(--primary-foreground))" }}>
-              Process voice
-            </Button>
+          <div className="space-y-4">
+            <div className="rounded-2xl bg-secondary/40 border border-border p-5 flex flex-col items-center gap-3">
+              <button
+                onClick={recState === "recording" ? stopRec : recState === "idle" ? startRec : undefined}
+                disabled={recState === "transcribing"}
+                className="w-20 h-20 rounded-full flex items-center justify-center tap relative"
+                style={{
+                  background: recState === "recording"
+                    ? "hsl(var(--destructive))"
+                    : "var(--gradient-brand)",
+                  boxShadow: "var(--shadow-glow)",
+                }}
+              >
+                {recState === "recording" && (
+                  <span className="absolute inset-0 rounded-full animate-pulse-glow"
+                    style={{ background: "hsl(var(--destructive) / 0.4)" }} />
+                )}
+                {recState === "transcribing"
+                  ? <Loader2 className="w-7 h-7 animate-spin text-white relative" />
+                  : recState === "recording"
+                    ? <Square className="w-6 h-6 text-white fill-white relative" />
+                    : <Mic className="w-7 h-7 text-white relative" />}
+              </button>
+              <div className="text-2xl font-mono tabular-nums tracking-wider">{mm}:{ss}</div>
+              <div className="flex items-end gap-[3px] h-10 w-full justify-center">
+                {waveform.map((h, i) => (
+                  <span key={i} className="w-[3px] rounded-full transition-all duration-150"
+                    style={{
+                      height: recState === "recording" ? `${h}px` : "6px",
+                      background: recState === "recording" ? "hsl(var(--destructive))" : "hsl(var(--primary) / 0.5)",
+                    }} />
+                ))}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                {recState === "idle" && "Tap mic to start recording"}
+                {recState === "recording" && "Recording… tap to stop"}
+                {recState === "transcribing" && "Transcribing your voice…"}
+                {recState === "stopped" && "Review transcript below"}
+              </div>
+            </div>
+
+            {recState === "stopped" && (
+              <>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Transcript</Label>
+                  <Textarea value={voiceText} onChange={(e) => setVoiceText(e.target.value)}
+                    className="mt-1 bg-secondary border-border min-h-[80px]" />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button variant="outline" onClick={() => { setRecState("idle"); setVoiceText(""); setRecSeconds(0); }}
+                    className="rounded-xl bg-secondary border-border">
+                    <Play className="w-4 h-4 mr-1.5" /> Re-record
+                  </Button>
+                  <Button disabled={!voiceText.trim()} onClick={() => startProcessing("voice", { transcript: voiceText })}
+                    className="rounded-xl" style={{ background: "var(--gradient-brand)", color: "hsl(var(--primary-foreground))" }}>
+                    <Sparkles className="w-4 h-4 mr-1.5" /> Understand
+                  </Button>
+                </div>
+              </>
+            )}
           </div>
         );
+      }
       case "text":
         return (
           <div className="space-y-3">
@@ -412,23 +533,54 @@ const Capture = () => {
       case "email":
         return (
           <div className="space-y-3">
-            <Input placeholder="From (sender)" value={email.sender} onChange={(e) => setEmail({ ...email, sender: e.target.value })}
-              className="bg-secondary border-border" />
-            <Input placeholder="Subject" value={email.subject} onChange={(e) => setEmail({ ...email, subject: e.target.value })}
-              className="bg-secondary border-border" />
-            <Button disabled={!email.subject.trim()} onClick={() => startProcessing("email", email)}
+            <div>
+              <Label className="text-xs text-muted-foreground">From</Label>
+              <Input placeholder="sender@email.com" value={email.sender} onChange={(e) => setEmail({ ...email, sender: e.target.value })}
+                className="mt-1 bg-secondary border-border" />
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground">Subject</Label>
+              <Input placeholder="Email subject" value={email.subject} onChange={(e) => setEmail({ ...email, subject: e.target.value })}
+                className="mt-1 bg-secondary border-border" />
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground">Email body</Label>
+              <Textarea placeholder="Paste the email content so Orbit can understand it…"
+                value={email.body} onChange={(e) => setEmail({ ...email, body: e.target.value })}
+                className="mt-1 bg-secondary border-border min-h-[140px]" />
+              <div className="text-[11px] text-muted-foreground mt-1">Orbit will detect intent, summary, priority & next action.</div>
+            </div>
+            <Button disabled={!email.subject.trim() || !email.body.trim()} onClick={() => startProcessing("email", email)}
               className="w-full" style={{ background: "var(--gradient-brand)", color: "hsl(var(--primary-foreground))" }}>
-              Process email
+              <Sparkles className="w-4 h-4 mr-1.5" /> Understand email
             </Button>
           </div>
         );
     }
   };
 
+  const onTrial = trialEndsAt && trialEndsAt > Date.now();
+  const today = new Date().toISOString().slice(0, 10);
+  const usedToday = freeUsage.date === today ? freeUsage.captures : 0;
+  const freeLimit = 3;
+
   return (
     <div className="px-5 pt-6 pb-6 min-h-screen">
       <h1 className="text-xl font-semibold tracking-tight">Capture</h1>
       <p className="text-xs text-muted-foreground mt-1">Drop anything. Orbit will understand it.</p>
+
+      {/* free usage / premium banner */}
+      {!isPremium && !onTrial && (
+        <button onClick={() => navigate("/premium")}
+          className="mt-4 w-full premium-card p-3 flex items-center gap-3 text-left tap">
+          <Sparkles className="w-4 h-4 text-primary" />
+          <div className="flex-1 min-w-0">
+            <div className="text-xs font-medium">{Math.max(0, freeLimit - usedToday)} free captures left today</div>
+            <div className="text-[11px] text-muted-foreground">Go unlimited with Orbit Premium</div>
+          </div>
+          <span className="text-[11px] text-primary font-semibold">Upgrade →</span>
+        </button>
+      )}
 
       {/* method grid */}
       <div className="mt-5 grid grid-cols-2 gap-3">
@@ -454,13 +606,17 @@ const Capture = () => {
           <div className="text-xs text-muted-foreground mb-2">Just added</div>
           <div className="space-y-2">
             {results.slice(0, 3).map((r) => (
-              <div key={r.id} className="premium-card p-3 flex items-center gap-3">
-                <div className="w-1 h-8 rounded-full" style={{ background: `hsl(var(--priority-${r.priority}))` }} />
+              <button key={r.id} onClick={() => navigate(`/task/${r.id}`)}
+                className="w-full premium-card p-3 flex items-center gap-3 text-left tap">
+                <div className="w-1 h-10 rounded-full" style={{ background: `hsl(var(--priority-${r.priority}))` }} />
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm truncate">{r.title}</div>
-                  <div className="text-[11px] text-muted-foreground">Added · {CATEGORY_META[r.category].label}</div>
+                  <div className="text-sm font-medium truncate">{r.title}</div>
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <CategoryPill category={r.category} />
+                    <PriorityPill priority={r.priority} />
+                  </div>
                 </div>
-              </div>
+              </button>
             ))}
           </div>
         </div>

@@ -17,7 +17,8 @@ import Profile from "./pages/Profile";
 import Notifications from "./pages/Notifications";
 import TaskDetail from "./pages/TaskDetail";
 import DailyPulse from "./pages/DailyPulse";
-import { Admin, AdminCategory } from "./pages/Admin";
+import { Admin, AdminCategory, AdminItemDetail } from "./pages/Admin";
+import Premium from "./pages/Premium";
 import PersonalInfo from "./pages/profile/PersonalInfo";
 import ConnectedAccounts from "./pages/profile/ConnectedAccounts";
 import Security from "./pages/profile/Security";
@@ -53,6 +54,8 @@ const Routed = () => (
       <Route path="/daily-pulse" element={<RequireAuth><DailyPulse /></RequireAuth>} />
       <Route path="/admin" element={<RequireAuth><Admin /></RequireAuth>} />
       <Route path="/admin/:cat" element={<RequireAuth><AdminCategory /></RequireAuth>} />
+      <Route path="/admin/:cat/:id" element={<RequireAuth><AdminItemDetail /></RequireAuth>} />
+      <Route path="/premium" element={<RequireAuth><Premium /></RequireAuth>} />
 
       <Route path="/profile/personal" element={<RequireAuth><PersonalInfo /></RequireAuth>} />
       <Route path="/profile/accounts" element={<RequireAuth><ConnectedAccounts /></RequireAuth>} />

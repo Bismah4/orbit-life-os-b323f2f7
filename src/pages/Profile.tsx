@@ -38,10 +38,16 @@ const Profile = () => {
         <div className="flex-1 min-w-0">
           <div className="font-semibold truncate">{profile.name}</div>
           <div className="text-xs text-muted-foreground truncate">{profile.email}</div>
-          {profile.premium && (
+          {profile.premium ? (
             <div className="mt-1.5 inline-flex items-center gap-1 text-[11px] text-primary font-medium">
               <Sparkles className="w-3 h-3" /> Orbit Premium
             </div>
+          ) : (
+            <button onClick={() => navigate("/premium")}
+              className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full tap"
+              style={{ background: "hsl(var(--primary) / 0.15)", color: "hsl(var(--primary))", border: "1px solid hsl(var(--primary) / 0.3)" }}>
+              <Sparkles className="w-3 h-3" /> Upgrade to Premium
+            </button>
           )}
         </div>
       </div>
