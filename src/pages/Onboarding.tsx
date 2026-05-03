@@ -154,13 +154,15 @@ const Visual = ({ kind }: { kind: string }) => {
 
 const Onboarding = () => {
   const navigate = useNavigate();
-  const { setOnboarded } = useOrbit();
+  const { setOnboarded, isAuthed } = useOrbit();
   const [i, setI] = useState(0);
   const last = i === slides.length - 1;
 
   const finish = () => {
     setOnboarded(true);
-    navigate("/auth", { replace: true });
+    // If user is already signed up (signup flow), go straight to empty Home.
+    // Otherwise, send them to Auth to create their account.
+    navigate(isAuthed ? "/home" : "/auth", { replace: true });
   };
 
   const slide = slides[i];
