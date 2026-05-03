@@ -304,8 +304,10 @@ const EditModal = ({ open, draft, onOpenChange, onSave }: {
 // =================== Capture Page ===================
 
 const Capture = () => {
-  const { addTask, canUse, bumpUsage, isPremium, trialEndsAt, freeUsage } = useOrbit();
+  const { addTask, canUse, bumpUsage, isPremium, trialEndsAt, freeUsage, isProFeature } = useOrbit();
   const navigate = useNavigate();
+  const onTrialNow = !!(trialEndsAt && trialEndsAt > Date.now());
+  const isProUser = isPremium || onTrialNow;
   const [activeMethod, setActiveMethod] = useState<CaptureSource | null>(null);
   const [step, setStep] = useState<"input" | "processing" | "result">("input");
   const [progress, setProgress] = useState(0);
