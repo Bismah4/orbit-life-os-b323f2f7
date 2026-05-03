@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { useOrbit } from "@/store/orbit";
-import { ChevronRight, User, Link2, Lock, Clock, Bell, HelpCircle, Shield, FileText, LogOut, Sparkles, Layers } from "lucide-react";
+import { ChevronRight, User, Link2, Lock, Clock, Bell, HelpCircle, Shield, FileText, LogOut, Sparkles, Layers, Crown, SlidersHorizontal } from "lucide-react";
 import { toast } from "sonner";
 
 const Row = ({ icon: Icon, label, hint, onClick, danger }: any) => (
@@ -17,13 +17,14 @@ const Row = ({ icon: Icon, label, hint, onClick, danger }: any) => (
 
 const Profile = () => {
   const navigate = useNavigate();
-  const { profile, setAuthed, dailyPulseTime, reminderStyle, connectedGoogle, connectedApple } = useOrbit();
+  const { profile, signOut: storeSignOut, dailyPulseTime, reminderStyle, connectedGoogle, connectedApple, isPremium, trialEndsAt } = useOrbit();
 
   const signOut = () => {
-    setAuthed(false);
+    storeSignOut();
     toast.success("Signed out");
     navigate("/auth", { replace: true });
   };
+  const planLabel = isPremium ? "Premium" : (trialEndsAt && trialEndsAt > Date.now() ? "Trial" : "Free");
 
   return (
     <div className="px-5 pt-6 pb-6 min-h-screen">
@@ -70,6 +71,7 @@ const Profile = () => {
         <div className="text-[11px] uppercase tracking-wider text-muted-foreground mb-2 px-1">Account</div>
         <div className="premium-card divide-y divide-border/60 overflow-hidden">
           <Row icon={User}  label="Personal Info" hint="Name, email, phone" onClick={() => navigate("/profile/personal")} />
+          <Row icon={Crown} label="Subscription" hint={planLabel} onClick={() => navigate("/premium")} />
           <Row icon={Link2} label="Connected Accounts"
             hint={`${connectedGoogle ? "Google" : ""}${connectedGoogle && connectedApple ? " · " : ""}${connectedApple ? "Apple" : ""}${!connectedGoogle && !connectedApple ? "Not connected" : ""}`}
             onClick={() => navigate("/profile/accounts")} />
@@ -81,8 +83,9 @@ const Profile = () => {
       <div className="mt-5">
         <div className="text-[11px] uppercase tracking-wider text-muted-foreground mb-2 px-1">Preferences</div>
         <div className="premium-card divide-y divide-border/60 overflow-hidden">
+          <Row icon={Bell}  label="Notifications" hint="Reminders & alerts" onClick={() => navigate("/notifications")} />
           <Row icon={Clock} label="Daily Pulse Time" hint={dailyPulseTime} onClick={() => navigate("/profile/daily-pulse-time")} />
-          <Row icon={Bell}  label="Reminder Style" hint={reminderStyle} onClick={() => navigate("/profile/reminder-style")} />
+          <Row icon={SlidersHorizontal} label="Reminder Style" hint={reminderStyle} onClick={() => navigate("/profile/reminder-style")} />
         </div>
       </div>
 
