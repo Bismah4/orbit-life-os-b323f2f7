@@ -7,6 +7,7 @@ import { useOrbit, AdminItemKind } from "@/store/orbit";
 import { CategoryPill, PriorityPill } from "@/components/orbit/Chips";
 import { Button } from "@/components/ui/button";
 import { ReminderModal } from "@/components/orbit/ReminderModal";
+import { EditItemModal } from "@/components/orbit/EditItemModal";
 import { useState } from "react";
 import { fmtDateTime, fmtRelative } from "@/lib/time";
 
