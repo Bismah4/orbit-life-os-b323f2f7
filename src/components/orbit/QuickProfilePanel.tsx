@@ -12,7 +12,7 @@ export const QuickProfilePanel = ({
   onOpenChange: (v: boolean) => void;
 }) => {
   const navigate = useNavigate();
-  const { profile, setAuthed } = useOrbit();
+  const { profile, signOut: storeSignOut } = useOrbit();
 
   const go = (path: string) => {
     onOpenChange(false);
@@ -21,7 +21,7 @@ export const QuickProfilePanel = ({
 
   const signOut = () => {
     onOpenChange(false);
-    setAuthed(false);
+    storeSignOut();
     toast.success("Signed out");
     navigate("/auth", { replace: true });
   };

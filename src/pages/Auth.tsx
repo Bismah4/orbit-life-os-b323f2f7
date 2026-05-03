@@ -12,37 +12,46 @@ type Mode = "login" | "signup" | "forgot";
 
 const Auth = () => {
   const navigate = useNavigate();
-  const { setAuthed, updateProfile } = useOrbit();
+  const { signIn, setOnboarded, updateProfile } = useOrbit();
   const [mode, setMode] = useState<Mode>("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const routeAfterAuth = (isNew: boolean) => {
+    if (isNew) {
+      setOnboarded(false);
+      navigate("/onboarding", { replace: true });
+    } else {
+      navigate("/home", { replace: true });
+    }
+  };
+
   const submit = async () => {
     if (!email) return toast.error("Email required");
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 700));
+    await new Promise((r) => setTimeout(r, 500));
     setLoading(false);
     if (mode === "forgot") {
       toast.success("Reset link sent to " + email);
       setMode("login");
       return;
     }
-    if (mode === "signup" && name) updateProfile({ name, email });
-    else if (mode === "login") updateProfile({ email });
-    setAuthed(true);
+    const { isNew } = signIn(email, { name, isSignup: mode === "signup" });
+    if (mode === "signup" && name) updateProfile({ name });
     toast.success(mode === "signup" ? "Welcome to Orbit" : "Welcome back");
-    navigate("/home", { replace: true });
+    routeAfterAuth(isNew);
   };
 
   const social = async (provider: "google" | "apple") => {
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 600));
+    await new Promise((r) => setTimeout(r, 500));
     setLoading(false);
-    setAuthed(true);
+    const fakeEmail = `${provider}.user@orbit.app`;
+    const { isNew } = signIn(fakeEmail, { name: provider === "google" ? "Google User" : "Apple User" });
     toast.success(`Signed in with ${provider === "google" ? "Google" : "Apple"}`);
-    navigate("/home", { replace: true });
+    routeAfterAuth(isNew);
   };
 
   return (

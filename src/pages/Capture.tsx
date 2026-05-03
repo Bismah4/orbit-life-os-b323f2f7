@@ -304,8 +304,10 @@ const EditModal = ({ open, draft, onOpenChange, onSave }: {
 // =================== Capture Page ===================
 
 const Capture = () => {
-  const { addTask, canUse, bumpUsage, isPremium, trialEndsAt, freeUsage } = useOrbit();
+  const { addTask, canUse, bumpUsage, isPremium, trialEndsAt, freeUsage, isProFeature } = useOrbit();
   const navigate = useNavigate();
+  const onTrialNow = !!(trialEndsAt && trialEndsAt > Date.now());
+  const isProUser = isPremium || onTrialNow;
   const [activeMethod, setActiveMethod] = useState<CaptureSource | null>(null);
   const [step, setStep] = useState<"input" | "processing" | "result">("input");
   const [progress, setProgress] = useState(0);
@@ -564,6 +566,15 @@ const Capture = () => {
   const usedToday = freeUsage.date === today ? freeUsage.captures : 0;
   const freeLimit = 3;
 
+  const handleMethodClick = (id: CaptureSource) => {
+    if (!isProUser && isProFeature(id as any)) {
+      navigate("/premium", { state: { reason: "Upgrade to Pro to use this feature." } });
+      return;
+    }
+    reset();
+    setActiveMethod(id);
+  };
+
   return (
     <div className="px-5 pt-6 pb-6 min-h-screen">
       <h1 className="text-xl font-semibold tracking-tight">Capture</h1>
@@ -586,9 +597,16 @@ const Capture = () => {
       <div className="mt-5 grid grid-cols-2 gap-3">
         {METHODS.map((m) => {
           const Icon = m.icon;
+          const locked = !isProUser && (m.id === "voice" || m.id === "document" || m.id === "email");
           return (
-            <button key={m.id} onClick={() => { reset(); setActiveMethod(m.id); }}
-              className="premium-card p-4 text-left tap">
+            <button key={m.id} onClick={() => handleMethodClick(m.id)}
+              className="premium-card p-4 text-left tap relative">
+              {locked && (
+                <span className="absolute top-2 right-2 text-[9px] px-1.5 py-0.5 rounded-full font-semibold"
+                  style={{ background: "hsl(var(--primary) / 0.15)", color: "hsl(var(--primary))", border: "1px solid hsl(var(--primary) / 0.3)" }}>
+                  PRO
+                </span>
+              )}
               <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-2"
                 style={{ background: `hsl(${m.color} / 0.15)`, color: `hsl(${m.color})` }}>
                 <Icon className="w-5 h-5" />

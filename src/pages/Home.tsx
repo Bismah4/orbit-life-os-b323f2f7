@@ -67,13 +67,35 @@ const Home = () => {
               <div className="flex items-center gap-2 text-xs text-primary font-medium">
                 <Sparkles className="w-3.5 h-3.5" /> Daily Pulse
               </div>
-              <div className="mt-1 text-lg font-semibold tracking-tight">{needsAction.length} things need you today</div>
-              <div className="mt-1 text-xs text-muted-foreground">Orbit prioritized your day</div>
+              {tasks.length === 0 ? (
+                <>
+                  <div className="mt-1 text-lg font-semibold tracking-tight">Nothing needs you yet</div>
+                  <div className="mt-1 text-xs text-muted-foreground">Add your first item so Orbit can start prioritizing your day.</div>
+                </>
+              ) : (
+                <>
+                  <div className="mt-1 text-lg font-semibold tracking-tight">{needsAction.length} things need you today</div>
+                  <div className="mt-1 text-xs text-muted-foreground">Orbit prioritized your day</div>
+                </>
+              )}
             </div>
             <ChevronRight className="w-5 h-5 text-muted-foreground" />
           </div>
         </button>
       </section>
+
+      {/* Empty first-run CTA */}
+      {tasks.length === 0 && (
+        <section className="relative px-5 mt-5">
+          <button
+            onClick={() => navigate("/capture")}
+            className="w-full py-3.5 rounded-2xl text-sm font-medium tap"
+            style={{ background: "var(--gradient-brand)", color: "hsl(var(--primary-foreground))", boxShadow: "var(--shadow-glow)" }}
+          >
+            + Add your first item
+          </button>
+        </section>
+      )}
 
       {/* Smart Actions */}
       <section className="relative px-5 mt-6">
@@ -83,7 +105,11 @@ const Home = () => {
         </div>
         <div className="space-y-2.5">
           {top3.length === 0 && (
-            <div className="premium-card p-5 text-center text-sm text-muted-foreground">You're all caught up ✨</div>
+            <div className="premium-card p-5 text-center text-sm text-muted-foreground">
+              {tasks.length === 0
+                ? "No smart actions yet. Capture a task, bill, note, or reminder to get started."
+                : "You're all caught up ✨"}
+            </div>
           )}
           {top3.map((t) => (
             <button

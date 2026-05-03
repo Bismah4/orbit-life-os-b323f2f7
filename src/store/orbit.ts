@@ -12,7 +12,6 @@ export interface OrbitTask {
   category: Category;
   priority: Priority;
   source: CaptureSource;
-  // Per-source extra data (preview, transcript, etc.)
   meta?: Record<string, any>;
   status: "needs_action" | "completed";
   createdAt: number;
@@ -21,17 +20,6 @@ export interface OrbitTask {
   reminderAt?: number;
   suggestedAction?: string;
   whyItMatters?: string;
-}
-
-export interface Reminder {
-  id: string;
-  taskId: string;
-  title: string;
-  category: Category;
-  priority: Priority;
-  remindAt: number;
-  createdAt: number;
-  dismissed?: boolean;
 }
 
 export interface Reminder {
@@ -61,25 +49,46 @@ export interface Profile {
   name: string;
   email: string;
   phone: string;
-  avatarColor: string; // hsl
+  avatarColor: string;
   avatarInitial: string;
   streak: number;
   premium: boolean;
+}
+
+interface AccountSnapshot {
+  profile: Profile;
+  hasOnboarded: boolean;
+  tasks: OrbitTask[];
+  reminders: Reminder[];
+  adminItems: AdminItem[];
+  isPremium: boolean;
+  trialEndsAt?: number;
+  freeUsage: { date: string; captures: number; reminders: number };
+  dailyPulseTime: string;
+  reminderStyle: "gentle" | "standard" | "insistent";
+  biometrics: boolean;
+  twoFA: boolean;
+  connectedGoogle: boolean;
+  connectedApple: boolean;
 }
 
 interface AppState {
   // entry/auth
   hasOnboarded: boolean;
   isAuthed: boolean;
+  currentEmail: string | null;
+  accounts: Record<string, AccountSnapshot>;
   setOnboarded: (v: boolean) => void;
   setAuthed: (v: boolean) => void;
+  signIn: (email: string, opts?: { name?: string; isSignup?: boolean }) => { isNew: boolean };
+  signOut: () => void;
 
   // profile
   profile: Profile;
   updateProfile: (p: Partial<Profile>) => void;
 
   // settings
-  dailyPulseTime: string; // "08:00"
+  dailyPulseTime: string;
   reminderStyle: "gentle" | "standard" | "insistent";
   biometrics: boolean;
   twoFA: boolean;
@@ -89,14 +98,16 @@ interface AppState {
 
   // premium / trial
   isPremium: boolean;
-  trialEndsAt?: number; // ms
+  trialEndsAt?: number;
   freeUsage: { date: string; captures: number; reminders: number };
   setPremium: (v: boolean, trialDays?: number) => void;
   canUse: (kind: "capture" | "reminder") => boolean;
   bumpUsage: (kind: "capture" | "reminder") => void;
+  isProFeature: (key: "voice" | "document" | "email" | "screenshot" | "text") => boolean;
 
-  // admin items (bills/documents/renewals)
+  // admin items
   adminItems: AdminItem[];
+  addAdminItem: (item: Omit<AdminItem, "id">) => AdminItem;
   updateAdminItem: (id: string, p: Partial<AdminItem>) => void;
 
   // tasks & reminders
@@ -112,91 +123,129 @@ interface AppState {
   reset: () => void;
 }
 
-const seedTasks = (): OrbitTask[] => {
-  const now = Date.now();
-  return [
-    {
-      id: "t1",
-      title: "Review contract screenshot",
-      detail: "Apartment lease — Section 4.2 mentions a 3-month notice you didn't agree to.",
-      category: "admin", priority: "high", source: "screenshot",
-      meta: { screenshotType: "Contract", insight: "Renewal clause auto-renews for 12 months unless cancelled by Dec 15." },
-      suggestedAction: "Reply to landlord before Dec 15",
-      whyItMatters: "Auto-renewal locks you in for another year.",
-      status: "needs_action", createdAt: now - 1000 * 60 * 30,
-      dueAt: now + 1000 * 60 * 60 * 24 * 3,
-    },
-    {
-      id: "t2",
-      title: "Pay electricity bill",
-      detail: "₹2,340 due to BESCOM",
-      category: "money", priority: "high", source: "screenshot",
-      meta: { screenshotType: "Bill", insight: "Late fee of ₹120 applies after due date." },
-      suggestedAction: "Pay via UPI", whyItMatters: "Avoid late fee + service interruption.",
-      status: "needs_action", createdAt: now - 1000 * 60 * 60 * 2,
-      dueAt: now + 1000 * 60 * 60 * 36,
-    },
-    {
-      id: "t3",
-      title: "Reply to Sarah's message",
-      detail: "She asked about Thursday lunch.",
-      category: "people", priority: "medium", source: "screenshot",
-      meta: { screenshotType: "Chat", insight: "Last message was 2 days ago." },
-      suggestedAction: "Send a quick reply", whyItMatters: "Maintains the relationship.",
-      status: "needs_action", createdAt: now - 1000 * 60 * 60 * 5,
-    },
-    {
-      id: "t4",
-      title: "Renew car insurance",
-      category: "admin", priority: "medium", source: "email",
-      meta: { sender: "ICICI Lombard", subject: "Your policy expires in 7 days" },
-      suggestedAction: "Compare quotes & renew", whyItMatters: "Driving uninsured is illegal.",
-      status: "needs_action", createdAt: now - 1000 * 60 * 60 * 12,
-      dueAt: now + 1000 * 60 * 60 * 24 * 7,
-    },
-    {
-      id: "t5",
-      title: "Doctor appointment Friday",
-      category: "health", priority: "low", source: "voice",
-      meta: { transcript: "Don't forget Dr. Mehta on Friday at 4pm" },
-      suggestedAction: "Add to calendar", whyItMatters: "Stay on top of your check-ups.",
-      status: "needs_action", createdAt: now - 1000 * 60 * 60 * 20,
-    },
-    {
-      id: "t6",
-      title: "Wrote project proposal draft",
-      category: "work", priority: "low", source: "text",
-      meta: { text: "Drafted Q1 proposal — needs review by Mon." },
-      status: "completed", createdAt: now - 1000 * 60 * 60 * 48,
-      completedAt: now - 1000 * 60 * 60 * 5,
-    },
-  ];
-};
+const defaultProfile = (email = "", name = ""): Profile => ({
+  name: name || "You",
+  email,
+  phone: "",
+  avatarColor: "hsl(212 100% 62%)",
+  avatarInitial: (name || email || "Y").trim()[0]?.toUpperCase() ?? "Y",
+  streak: 0,
+  premium: false,
+});
+
+const emptyState = () => ({
+  hasOnboarded: false,
+  tasks: [] as OrbitTask[],
+  reminders: [] as Reminder[],
+  adminItems: [] as AdminItem[],
+  isPremium: false,
+  trialEndsAt: undefined as number | undefined,
+  freeUsage: { date: new Date().toISOString().slice(0, 10), captures: 0, reminders: 0 },
+  dailyPulseTime: "08:00",
+  reminderStyle: "standard" as const,
+  biometrics: true,
+  twoFA: false,
+  connectedGoogle: false,
+  connectedApple: false,
+});
 
 export const useOrbit = create<AppState>()(
   persist(
     (set, get) => ({
       hasOnboarded: false,
       isAuthed: false,
-      setOnboarded: (v) => set({ hasOnboarded: v }),
+      currentEmail: null,
+      accounts: {},
+
+      setOnboarded: (v) => {
+        set({ hasOnboarded: v });
+        get().signOut; // no-op
+        // snapshot to current account
+        const email = get().currentEmail;
+        if (email) {
+          const accounts = { ...get().accounts };
+          if (accounts[email]) accounts[email] = { ...accounts[email], hasOnboarded: v };
+          set({ accounts });
+        }
+      },
       setAuthed: (v) => set({ isAuthed: v }),
 
-      profile: {
-        name: "Alex Rivera",
-        email: "alex.rivera@orbit.app",
-        phone: "+1 415 555 0142",
-        avatarColor: "hsl(212 100% 62%)",
-        avatarInitial: "A",
-        streak: 12,
-        premium: false,
+      signIn: (email, opts) => {
+        const e = email.trim().toLowerCase();
+        const accounts = { ...get().accounts };
+        const existing = accounts[e];
+        const isNew = !existing || !!opts?.isSignup && !existing;
+
+        if (existing && !opts?.isSignup) {
+          // restore
+          set({
+            ...existing,
+            isAuthed: true,
+            currentEmail: e,
+          });
+          return { isNew: false };
+        }
+
+        // signup or first login with new email
+        const fresh = emptyState();
+        const profile = defaultProfile(e, opts?.name);
+        const snapshot: AccountSnapshot = { ...fresh, profile };
+        accounts[e] = snapshot;
+        set({
+          ...snapshot,
+          accounts,
+          isAuthed: true,
+          currentEmail: e,
+        });
+        return { isNew: true };
       },
-      updateProfile: (p) => set({ profile: { ...get().profile, ...p, avatarInitial: (p.name?.trim()?.[0] ?? get().profile.avatarInitial).toUpperCase() } }),
+
+      signOut: () => {
+        // snapshot before clearing session
+        const email = get().currentEmail;
+        const accounts = { ...get().accounts };
+        if (email) {
+          accounts[email] = {
+            profile: get().profile,
+            hasOnboarded: get().hasOnboarded,
+            tasks: get().tasks,
+            reminders: get().reminders,
+            adminItems: get().adminItems,
+            isPremium: get().isPremium,
+            trialEndsAt: get().trialEndsAt,
+            freeUsage: get().freeUsage,
+            dailyPulseTime: get().dailyPulseTime,
+            reminderStyle: get().reminderStyle,
+            biometrics: get().biometrics,
+            twoFA: get().twoFA,
+            connectedGoogle: get().connectedGoogle,
+            connectedApple: get().connectedApple,
+          };
+        }
+        set({
+          accounts,
+          isAuthed: false,
+          currentEmail: null,
+          ...emptyState(),
+          profile: defaultProfile(),
+        });
+      },
+
+      profile: defaultProfile(),
+      updateProfile: (p) => {
+        const next = {
+          ...get().profile,
+          ...p,
+          avatarInitial: (p.name?.trim()?.[0] ?? get().profile.avatarInitial).toUpperCase(),
+        };
+        set({ profile: next });
+      },
 
       dailyPulseTime: "08:00",
       reminderStyle: "standard",
       biometrics: true,
       twoFA: false,
-      connectedGoogle: true,
+      connectedGoogle: false,
       connectedApple: false,
       setSetting: (k, v) => set({ [k]: v } as any),
 
@@ -222,21 +271,20 @@ export const useOrbit = create<AppState>()(
         if (kind === "capture") u.captures += 1; else u.reminders += 1;
         set({ freeUsage: u });
       },
+      isProFeature: (key) => {
+        // Pro-locked capture features
+        return key === "voice" || key === "document" || key === "email";
+      },
 
-      adminItems: [
-        { id: "b1", kind: "bills", title: "Electricity — BESCOM", amount: "₹2,340", dueAt: Date.now() + 2 * 86400000, status: "active", notes: "Pay via UPI to avoid ₹120 late fee." },
-        { id: "b2", kind: "bills", title: "Internet — ACT", amount: "₹1,099", dueAt: Date.now() + 5 * 86400000, status: "active" },
-        { id: "b3", kind: "bills", title: "Water — BWSSB", amount: "₹420", dueAt: Date.now() - 1 * 86400000, status: "active", notes: "Overdue — pay immediately." },
-        { id: "r1", kind: "renewals", title: "Car insurance — ICICI", amount: "₹12,400", dueAt: Date.now() + 7 * 86400000, status: "active" },
-        { id: "r2", kind: "renewals", title: "Domain — orbit.app", amount: "$12", dueAt: Date.now() + 21 * 86400000, status: "active" },
-        ...["Lease agreement", "Aadhaar copy", "PAN card", "Insurance policy", "Bank KYC", "Salary slip", "ITR 2024", "Passport scan", "Driving licence", "Voter ID", "School certificate", "Medical report"].map((t, i) => ({
-          id: "d" + i, kind: "documents" as const, title: t, status: "active" as const, meta: { format: "PDF" },
-        })),
-      ],
+      adminItems: [],
+      addAdminItem: (item) => {
+        const it: AdminItem = { id: "a_" + Math.random().toString(36).slice(2, 9), ...item };
+        set({ adminItems: [it, ...get().adminItems] });
+        return it;
+      },
       updateAdminItem: (id, p) => set({ adminItems: get().adminItems.map((x) => x.id === id ? { ...x, ...p } : x) }),
 
-
-      tasks: seedTasks(),
+      tasks: [],
       reminders: [],
       addTask: (t) => {
         const task: OrbitTask = {
@@ -275,13 +323,21 @@ export const useOrbit = create<AppState>()(
       dismissReminder: (id) =>
         set({ reminders: get().reminders.map((r) => (r.id === id ? { ...r, dismissed: true } : r)) }),
 
-      reset: () => set({ hasOnboarded: false, isAuthed: false }),
+      reset: () => set({
+        isAuthed: false,
+        currentEmail: null,
+        accounts: {},
+        ...emptyState(),
+        profile: defaultProfile(),
+      }),
     }),
     {
       name: "orbit-store",
       partialize: (s) => ({
         hasOnboarded: s.hasOnboarded,
         isAuthed: s.isAuthed,
+        currentEmail: s.currentEmail,
+        accounts: s.accounts,
         profile: s.profile,
         dailyPulseTime: s.dailyPulseTime,
         reminderStyle: s.reminderStyle,

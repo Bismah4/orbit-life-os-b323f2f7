@@ -1,12 +1,12 @@
 import { NavLink, useLocation } from "react-router-dom";
-import { Home, Inbox, Layers, BookmarkCheck, User } from "lucide-react";
+import { Home, Inbox, Layers, BookmarkCheck, Settings as SettingsIcon } from "lucide-react";
 
 const tabs = [
   { to: "/home", label: "Home", icon: Home },
   { to: "/feed", label: "Feed", icon: Inbox },
   { to: "/capture", label: "Capture", icon: Layers, primary: true },
   { to: "/memory", label: "Memory", icon: BookmarkCheck },
-  { to: "/profile", label: "Settings", icon: User },
+  { to: "/profile", label: "Settings", icon: SettingsIcon },
 ];
 
 export const BottomNav = () => {

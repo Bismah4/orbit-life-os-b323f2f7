@@ -3,7 +3,8 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useOrbit } from "@/store/orbit";
 import { CategoryPill, PriorityPill } from "@/components/orbit/Chips";
 import { ReminderModal } from "@/components/orbit/ReminderModal";
-import { ArrowLeft, Bell, Check, Trash2 } from "lucide-react";
+import { EditItemModal } from "@/components/orbit/EditItemModal";
+import { ArrowLeft, Bell, Check, Trash2, Edit3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { fmtDateTime, fmtRelative } from "@/lib/time";
 import { toast } from "sonner";
@@ -11,9 +12,10 @@ import { toast } from "sonner";
 const TaskDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { tasks, completeTask, setReminder, removeTask } = useOrbit();
+  const { tasks, completeTask, setReminder, removeTask, updateTask } = useOrbit();
   const task = tasks.find((t) => t.id === id);
   const [remind, setRemind] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
 
   if (!task) {
     return (
@@ -92,10 +94,39 @@ const TaskDetail = () => {
         </div>
       )}
 
-      <button onClick={() => { removeTask(task.id); toast("Task removed"); navigate(-1); }}
-        className="mt-4 w-full py-3 text-sm text-destructive flex items-center justify-center gap-2 tap">
-        <Trash2 className="w-4 h-4" /> Delete
-      </button>
+      <div className="mt-3 grid grid-cols-2 gap-3">
+        <Button variant="ghost" onClick={() => setEditOpen(true)} className="rounded-2xl h-11 bg-secondary/60">
+          <Edit3 className="w-4 h-4 mr-2" /> Edit
+        </Button>
+        <Button variant="ghost" onClick={() => { removeTask(task.id); toast("Task removed"); navigate(-1); }}
+          className="rounded-2xl h-11 bg-secondary/60 text-destructive">
+          <Trash2 className="w-4 h-4 mr-2" /> Delete
+        </Button>
+      </div>
+
+      <EditItemModal
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        title="Edit task"
+        fields={["title", "category", "priority", "dueAt", "notes"]}
+        initial={{
+          title: task.title,
+          category: task.category,
+          priority: task.priority,
+          dueAt: task.dueAt,
+          notes: task.detail,
+        }}
+        onSave={(d) => {
+          updateTask(task.id, {
+            title: d.title ?? task.title,
+            category: d.category ?? task.category,
+            priority: d.priority ?? task.priority,
+            dueAt: d.dueAt,
+            detail: d.notes,
+          });
+          toast.success("Updated successfully");
+        }}
+      />
 
       <ReminderModal open={remind} onOpenChange={setRemind} title={task.title}
         onPick={(ts) => { setReminder(task.id, ts); toast.success(`Reminder set for ${fmtDateTime(ts)}`); }} />

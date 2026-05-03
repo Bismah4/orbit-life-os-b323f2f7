@@ -7,6 +7,7 @@ import { useOrbit, AdminItemKind } from "@/store/orbit";
 import { CategoryPill, PriorityPill } from "@/components/orbit/Chips";
 import { Button } from "@/components/ui/button";
 import { ReminderModal } from "@/components/orbit/ReminderModal";
+import { EditItemModal } from "@/components/orbit/EditItemModal";
 import { useState } from "react";
 import { fmtDateTime, fmtRelative } from "@/lib/time";
 
@@ -130,6 +131,7 @@ export const AdminItemDetail = () => {
   const navigate = useNavigate();
   const { adminItems, updateAdminItem, setReminder, addTask } = useOrbit();
   const [remind, setRemind] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const item = adminItems.find((x) => x.id === id);
 
   if (!item) {
@@ -144,6 +146,12 @@ export const AdminItemDetail = () => {
   const meta = KIND_META[item.kind];
   const Icon = meta.icon;
   const overdue = item.dueAt && item.dueAt < Date.now();
+
+  const editFields = item.kind === "documents"
+    ? ["title", "format", "status", "notes"] as const
+    : item.kind === "bills"
+      ? ["title", "amount", "dueAt", "status", "notes"] as const
+      : ["title", "amount", "dueAt", "status", "notes"] as const;
 
   return (
     <div className="px-5 pt-6 pb-6 min-h-screen">
@@ -208,7 +216,7 @@ export const AdminItemDetail = () => {
         </Button>
       </div>
       <div className="mt-3 grid grid-cols-2 gap-3">
-        <Button variant="ghost" onClick={() => toast("Edit (coming soon)")} className="rounded-2xl h-11 bg-secondary/60">
+        <Button variant="ghost" onClick={() => setEditOpen(true)} className="rounded-2xl h-11 bg-secondary/60">
           <Edit3 className="w-4 h-4 mr-2" /> Edit
         </Button>
         <Button variant="ghost" onClick={() => { updateAdminItem(item.id, { status: "archived" }); toast("Archived"); navigate(-1); }}
@@ -217,9 +225,34 @@ export const AdminItemDetail = () => {
         </Button>
       </div>
 
+      <EditItemModal
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        title={`Edit ${meta.label.slice(0, -1)}`}
+        fields={editFields as any}
+        initial={{
+          title: item.title,
+          amount: item.amount,
+          dueAt: item.dueAt,
+          status: item.status,
+          notes: item.notes,
+          format: item.meta?.format,
+        }}
+        onSave={(d) => {
+          updateAdminItem(item.id, {
+            title: d.title ?? item.title,
+            amount: d.amount,
+            dueAt: d.dueAt,
+            status: (d.status as any) ?? item.status,
+            notes: d.notes,
+            meta: { ...(item.meta || {}), ...(d.format ? { format: d.format } : {}) },
+          });
+          toast.success("Updated successfully");
+        }}
+      />
+
       <ReminderModal open={remind} onOpenChange={setRemind} title={item.title}
         onPick={(ts) => {
-          // create a backing task so reminder lives in feed/notifications too
           const t = addTask({
             title: item.title,
             category: "admin",
