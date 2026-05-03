@@ -18,8 +18,9 @@ const Premium = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const reason = (location.state as any)?.reason as string | undefined;
-  const { setPremium } = useOrbit();
+  const { setPremium, isPremium, trialEndsAt } = useOrbit();
   const [plan, setPlan] = useState<"yearly" | "monthly">("yearly");
+  const onTrial = !!(trialEndsAt && trialEndsAt > Date.now());
 
   const startTrial = () => {
     setPremium(true, 7);
@@ -30,6 +31,10 @@ const Premium = () => {
     setPremium(true);
     toast.success(`Subscribed: ${plan === "yearly" ? "Yearly" : "Monthly"}`);
     navigate(-1);
+  };
+  const manage = () => {
+    setPremium(false);
+    toast("Subscription cancelled");
   };
 
   return (
@@ -87,18 +92,32 @@ const Premium = () => {
       </div>
 
       <div className="px-5 mt-5 space-y-2">
-        <Button onClick={startTrial} className="w-full h-12 rounded-2xl text-base font-medium"
-          style={{ background: "var(--gradient-brand)", color: "hsl(var(--primary-foreground))" }}>
-          Start 7-day free trial
-        </Button>
-        <Button onClick={subscribe} variant="outline" className="w-full h-11 rounded-2xl bg-secondary border-border">
-          Subscribe — {plan === "yearly" ? "$59.99/yr" : "$9.99/mo"}
-        </Button>
+        {(isPremium || onTrial) ? (
+          <>
+            <div className="premium-card p-4 text-sm">
+              <div className="text-xs text-muted-foreground">Current plan</div>
+              <div className="font-semibold">{isPremium ? "Orbit Premium" : `Trial · ends ${new Date(trialEndsAt!).toLocaleDateString()}`}</div>
+            </div>
+            <Button onClick={manage} variant="outline" className="w-full h-12 rounded-2xl bg-secondary border-border">
+              Manage subscription
+            </Button>
+          </>
+        ) : (
+          <>
+            <Button onClick={startTrial} className="w-full h-12 rounded-2xl text-base font-medium"
+              style={{ background: "var(--gradient-brand)", color: "hsl(var(--primary-foreground))" }}>
+              Start 7-day free trial
+            </Button>
+            <Button onClick={subscribe} variant="outline" className="w-full h-11 rounded-2xl bg-secondary border-border">
+              Subscribe — {plan === "yearly" ? "$59.99/yr" : "$9.99/mo"}
+            </Button>
+          </>
+        )}
         <button onClick={() => toast("No purchases to restore")} className="block w-full text-center text-xs text-muted-foreground mt-1">
           Restore purchase
         </button>
         <button onClick={() => navigate(-1)} className="block w-full text-center text-xs text-muted-foreground">
-          Continue free
+          {isPremium || onTrial ? "Back" : "Continue free"}
         </button>
       </div>
     </div>
