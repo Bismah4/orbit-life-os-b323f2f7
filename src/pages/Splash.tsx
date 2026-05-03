@@ -11,9 +11,10 @@ const Splash = () => {
   useEffect(() => {
     const o = setTimeout(() => setOut(true), 1500);
     const t = setTimeout(() => {
-      if (!hasOnboarded) navigate("/onboarding", { replace: true });
-      else if (!isAuthed) navigate("/auth", { replace: true });
-      else navigate("/home", { replace: true });
+      // Authed users always go straight to Home (don't re-show onboarding on refresh)
+      if (isAuthed) navigate("/home", { replace: true });
+      else if (!hasOnboarded) navigate("/onboarding", { replace: true });
+      else navigate("/auth", { replace: true });
     }, 1900);
     return () => { clearTimeout(t); clearTimeout(o); };
   }, [hasOnboarded, isAuthed, navigate]);
